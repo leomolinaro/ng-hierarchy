@@ -1,11 +1,12 @@
-import { NgModule } from '@angular/core';
-import { BrowserModule } from '@angular/platform-browser';
+import { NgModule } from "@angular/core";
+import { BrowserModule } from "@angular/platform-browser";
+import { AppComponent } from "./app.component";
+import { SynergyHierarchyComponent } from "./synergy-hierarchy/synergy-hierarchy.component";
 
-import { AppComponent } from './app.component';
-
-@NgModule({
+@NgModule ({
   declarations: [
-    AppComponent
+    AppComponent,
+    SynergyHierarchyComponent
   ],
   imports: [
     BrowserModule

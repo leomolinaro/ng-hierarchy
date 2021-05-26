@@ -1,0 +1,22 @@
+.s-hierarchy-node {
+  circle {
+    fill: #999;
+  }
+  text {
+    font: 10px sans-serif;
+  }
+  &.is-internal text {
+    // per coprire i legami sottostanti
+    text-shadow: 0 1px 0 #fff, 0 -1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff;
+  }
+  .s-hierarchy-drag-handle {
+    cursor: move;
+  }
+}
+
+.s-hierarchy-edge {
+  fill: none;
+  stroke: #555;
+  stroke-opacity: 0.4;
+  stroke-width: 1.5px;
+}

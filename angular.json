@@ -7,7 +7,8 @@
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
-          "style": "scss"
+          "style": "scss",
+          "changeDetection": "OnPush"
         },
         "@schematics/angular:application": {
           "strict": true
@@ -103,9 +104,21 @@
             ],
             "scripts": []
           }
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": [
+              "src/**/*.ts",
+              "src/**/*.html"
+            ]
+          }
         }
       }
     }
   },
-  "defaultProject": "ng-tree-graph"
+  "defaultProject": "ng-tree-graph",
+  "cli": {
+    "defaultCollection": "@angular-eslint/schematics"
+  }
 }
