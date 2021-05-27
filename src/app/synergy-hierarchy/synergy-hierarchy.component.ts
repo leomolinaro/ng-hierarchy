@@ -1,7 +1,7 @@
-import { ChangeDetectionStrategy, Component, ElementRef, Input, OnChanges, SimpleChanges, ViewChild } from "@angular/core";
+import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild } from "@angular/core";
 import * as d3 from "d3";
 import { HierarchyPointNode } from "d3";
-import { entitiesToNodes } from "../util";
+import { BooleanInput, entitiesToNodes } from "../util";
 
 export interface SHierarchyNode<E> {
   id: string | number;
@@ -10,13 +10,25 @@ export interface SHierarchyNode<E> {
   label: string;
   edgePath: string | null;
   point: HierarchyPointNode<SHierarchyNode<E>>;
+  cssClasses: string[];
+  selected: boolean;
 } // SHierarchyNode
+
+export interface SHierarchySelectionChangeEvent<E> {
+  selectedElements: E[];
+  selectedNodes: SHierarchyNode<E>[];
+} // SHierarchySelectionChangeEvent
+
+export interface SHierarchyChangeEvent<E> {
+
+} // SHierarchyChangeEvent
 
 export interface SHierarchyConfig<E> {
   getId: (entity: E) => string | number;
   getLabel: (entity: E) => string;
   getParentId: (entity: E) => string | number | null;
   leafSort?: (entityA: E, entityB: E) => number;
+  getClass?: (entity: E) => string | string[];
 } // SHierarchyConfig
 
 @Component ({
@@ -34,6 +46,11 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
   @Input () mode: "tree" | "cluster" = "tree";
   @Input () width = 500;
   @Input () height = 500;
+  @Input () @BooleanInput () leafSorting = false;
+  @Input () selection: "none" | "single" | "multiple" = "none";
+
+  @Output () selectionChange = new EventEmitter<SHierarchySelectionChangeEvent<E>> ();
+  @Output () sChange = new EventEmitter<SHierarchyChangeEvent<E>> ();
 
   @ViewChild ("svg") svg!: ElementRef<SVGElement>;
   
@@ -69,28 +86,62 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
     const root = stratify (this.nodeIds.map (id => this.nodesMap[id]));
     // .sort ((a, b) => (a.height - b.height) || a.id!.localeCompare (b.id!));
       
-    const pointRoot = hierarchy (root);
-    const pointDescendants = pointRoot.descendants ().slice (1);
-
+    const rootPoint = hierarchy (root);
+    
+    if (this.config.leafSort) {
+      const leaves = rootPoint.leaves ();
+      this.applyLeafSort (leaves);
+    } // if
+    
+    const descendantPoints = rootPoint.descendants ().slice (1);
     this.nodes = [];
     this.edges = [];
 
-    const rootNode = pointRoot.data;
-    rootNode.point = pointRoot;
-    this.nodes.push (rootNode);
+    this.initNode (rootPoint);
     
-    pointDescendants.forEach ((point) => {
-      const node = point.data;
-      node.edgePath = this.pointToEdgePath (point);
-      node.point = point;
-      this.nodes.push (node);
-      this.edges.push (node);
+    descendantPoints.forEach ((point) => {
+      this.initNode (point);
+      this.initEdge (point);
     });
 
   } // redrawHierarchy
 
+  private initNode (point: HierarchyPointNode<SHierarchyNode<E>>) {
+    const node = point.data;
+    node.point = point;
+    this.initNodeCssClasses (node);
+    this.nodes.push (node);
+  } // initNode
+
+  private initEdge (point: HierarchyPointNode<SHierarchyNode<E>>) {
+    const node = point.data;
+    node.edgePath = this.pointToEdgePath (point);
+    this.edges.push (node);
+  } // initEdge
+
+  private initNodeCssClasses (node: SHierarchyNode<E>) {
+    node.cssClasses = [node.point.children ? "is-internal" : "is-leaf"];
+    if (this.config.getClass) {
+      const configClasses = this.config.getClass (node.data);
+      if (configClasses) {
+        if (typeof configClasses === "string") {
+          node.cssClasses.push (configClasses);
+        } else {
+          configClasses.forEach (cl => node.cssClasses.push (cl));
+        } // if - else
+      } // if
+    } // if
+  } // initNodeCssClasses
+
+  private applyLeafSort (leaves: HierarchyPointNode<SHierarchyNode<E>>[]) {
+    const copy = [...leaves];
+    const xs = leaves.map (l => l.x);
+    copy.sort ((a, b) => this.config.leafSort! (a.data.data, b.data.data));
+    copy.forEach ((c, index) => c.x = xs[index]);
+  } // applyLeafSort
+
   private pointToEdgePath (point: HierarchyPointNode<SHierarchyNode<E>>) {
-    return `M${point.y},${point.x} C${(point.parent!.y + 100)},${point.x} ${(point.parent!.y + 100)},${point.parent!.x} ${point.parent!.y},${point.parent!.x}`
+    return `M${point.y},${point.x} C${(point.parent!.y + 100)},${point.x} ${(point.parent!.y + 100)},${point.parent!.x} ${point.parent!.y},${point.parent!.x}`;
   } // nodeToEdgePath
 
   private entityToNode (entity: E): SHierarchyNode<E> {
@@ -99,10 +150,39 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
       data: entity,
       label: this.config.getLabel (entity),
       parentId: this.config.getParentId (entity),
+      cssClasses: null as any,
       edgePath: null,
-      point: null as any
+      point: null as any,
+      selected: false
     };
   } // entityToNode
+
+  onNodeClick (node: SHierarchyNode<E>) {
+    if (this.selection !== "none") {
+      if (node.selected) {
+        node.selected = false;
+        const clIndex = node.cssClasses.findIndex (cl => cl === "is-selected");
+        if (clIndex >= 0) { node.cssClasses.splice (clIndex, 1); }
+      } else {
+        if (this.selection === "single") {
+          this.nodes.forEach (n => {
+            if (n.selected) {
+              n.selected = false;
+              const clIndex = n.cssClasses.findIndex (cl => cl === "is-selected");
+              if (clIndex >= 0) { n.cssClasses.splice (clIndex, 1); }
+            } // if
+          });
+        } // if
+        node.selected = true;
+        node.cssClasses.push ("is-selected");
+      } // if - else
+      const selectedNodes = this.nodes.filter (n => n.selected);
+      this.selectionChange.emit ({
+        selectedElements: selectedNodes.map (n => n.data),
+        selectedNodes: selectedNodes
+      });
+    } // if
+  } // onNodeClick
 
   private selectedNode: SHierarchyNode<E> | null = null;
   private selectedElement: any = null;

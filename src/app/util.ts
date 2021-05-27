@@ -14,7 +14,6 @@ export function entitiesToNodes<E, N> (
     ids.push (id);
     const oldNode = oldMap[id];
     if (oldNode) {
-      delete oldMap[id];
       const oldEntity = getNodeEntity (oldNode);
       if (oldEntity === entity) {
         map[id] = oldNode;

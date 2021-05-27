@@ -15,8 +15,9 @@
     <svg:g *ngFor="let node of nodes"
       (mousedown)="startDrag ($event, node)"
       (touchstart)="startDrag ($event, node)"
+      (click)="onNodeClick (node)"
       class="s-hierarchy-node"
-      [ngClass]="node.point.children ? 'is-internal' : 'is-leaf'"
+      [ngClass]="node.cssClasses"
       [attr.transform]="'translate(' + node.point.y + ',' + node.point.x + ')'">
       <svg:circle r="2.5">
       </svg:circle>

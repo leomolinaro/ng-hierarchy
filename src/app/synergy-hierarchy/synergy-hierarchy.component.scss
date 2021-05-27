@@ -12,6 +12,9 @@
   .s-hierarchy-drag-handle {
     cursor: move;
   }
+  &.is-selected text {
+    font-weight: 800;
+  }
 }
 
 .s-hierarchy-edge {
