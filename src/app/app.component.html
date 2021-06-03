@@ -1,6 +1,8 @@
 <synergy-hierarchy
   [entities]="queryNodes"
   [config]="hierarchyConfig"
+  leafSorting
   selection="multiple"
-  mode="cluster">
+  mode="cluster"
+  (sChange)="onQueryNodesChange ($event)">
 </synergy-hierarchy>

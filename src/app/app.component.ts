@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component } from "@angular/core";
-import { SHierarchyConfig } from "./synergy-hierarchy/synergy-hierarchy.component";
+import { SHierarchyChangeEvent, SHierarchyConfig } from "./synergy-hierarchy/synergy-hierarchy.component";
 
 interface SQueryTable {
   id: string;
@@ -60,7 +60,20 @@ export class AppComponent {
     { id: "dZone", type: "column", sort: 5, label: "Descrizione zona", table: "zone" },
     { id: "cResource", type: "column", sort: 2, label: "Codice risorsa", table: "assignee" },
     { id: "dResource", type: "column", sort: 4, label: "Descrizione risorsa", table: "assignee" },
-    { id: "dResourceType", type: "column", sort: 6, label: "Descrizione tipo risorsa", table: "assignee" },
+    { id: "dResourceType", type: "column", sort: 6, label: "Descrizione tipo risorsa", table: "resourceType" },
   ];
+
+  onQueryNodesChange (event: SHierarchyChangeEvent<SQueryNode>) {
+    if (event.type === "leafSort") {
+      const newQueryNodes = this.queryNodes.filter (qn => qn.type !== "column");
+      event.newLeafs.forEach ((column, index) => {
+        if (column.type === "column") {
+          column.sort = index + 1;
+          newQueryNodes.push (column);
+        } // if
+        this.queryNodes = newQueryNodes;
+      });
+    } // if
+  } // onQueryNodesChange
 
 }

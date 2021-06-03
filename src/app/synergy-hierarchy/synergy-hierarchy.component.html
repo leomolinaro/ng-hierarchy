@@ -1,29 +1,30 @@
 <svg #svg [attr.width]="width" [attr.height]="height"
-  (mousemove)="drag ($event)"
-  (mouseup)="endDrag ($event)"
-  (mouseleave)="endDrag ($event)"
-  (touchmove)="drag ($event)"
-  (touchend)="endDrag ($event)"
-  (touchleave)="endDrag ($event)"
-  (touchcancel)="endDrag ($event)">
+  (mousemove)="onDrag ($event)"
+  (mouseup)="onEndDrag ($event)"
+  (mouseleave)="onEndDrag ($event)"
+  (touchmove)="onDrag ($event)"
+  (touchend)="onEndDrag ($event)"
+  (touchleave)="onEndDrag ($event)"
+  (touchcancel)="onEndDrag ($event)">
   <svg:g transform="translate(40,0)">
     <svg:path
       *ngFor="let edge of edges"
       class="s-hierarchy-edge"
+      [ngClass]="edge.edgeCssClasses"
       [attr.d]="edge.edgePath">
     </svg:path>
     <svg:g *ngFor="let node of nodes"
-      (mousedown)="startDrag ($event, node)"
-      (touchstart)="startDrag ($event, node)"
+      (mousedown)="onStartDrag ($event, node)"
+      (touchstart)="onStartDrag ($event, node)"
       (click)="onNodeClick (node)"
       class="s-hierarchy-node"
-      [ngClass]="node.cssClasses"
+      [ngClass]="node.nodeCssClasses"
       [attr.transform]="'translate(' + node.point.y + ',' + node.point.x + ')'">
       <svg:circle r="2.5">
       </svg:circle>
       <svg:text
         dy="3"
-        [ngClass]="node.point.children ? '' : 's-hierarchy-drag-handle'"
+        [ngClass]="(leafSorting && !node.point.children) ? 's-hierarchy-drag-handle' : ''"
         [attr.x]="node.point.children ? -8 : 8"
         [attr.text-anchor]="node.point.children ? 'end' : 'start'">
         {{node.label}}
