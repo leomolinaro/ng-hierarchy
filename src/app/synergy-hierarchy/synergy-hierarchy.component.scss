@@ -1,15 +1,15 @@
 .s-hierarchy-node {
-  circle {
+  .s-hierarchy-default-node-shape {
     fill: #999;
   }
-  text {
+  ::ng-deep .s-hierarchy-label {
     font: 10px sans-serif;
   }
-  &.is-internal text {
+  &.is-internal ::ng-deep text {
     // per coprire i legami sottostanti
     text-shadow: 0 1px 0 #fff, 0 -1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff;
   }
-  .s-hierarchy-drag-handle {
+  ::ng-deep .s-hierarchy-drag-handle {
     cursor: move;
   }
   &.is-selected text {

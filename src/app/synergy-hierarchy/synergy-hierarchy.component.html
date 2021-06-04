@@ -20,15 +20,18 @@
       class="s-hierarchy-node"
       [ngClass]="node.nodeCssClasses"
       [attr.transform]="'translate(' + node.point.y + ',' + node.point.x + ')'">
-      <svg:circle r="2.5">
-      </svg:circle>
-      <svg:text
-        dy="3"
-        [ngClass]="(leafSorting && !node.point.children) ? 's-hierarchy-drag-handle' : ''"
-        [attr.x]="node.point.children ? -8 : 8"
-        [attr.text-anchor]="node.point.children ? 'end' : 'start'">
-        {{node.label}}
-      </svg:text>
+      <ng-container *ngTemplateOutlet="nodeTemplate || defaultNodeTemplate; context: { node: node }"></ng-container>
     </svg:g>
   </svg:g>
 </svg>
+<ng-template #defaultNodeTemplate let-node="node">
+  <svg:circle class="s-hierarchy-default-node-shape" r="2.5">
+  </svg:circle>
+  <svg:text
+    dy="3"
+    [ngClass]="(leafSorting && !node.hasChildren) ? 's-hierarchy-drag-handle' : ''"
+    [attr.x]="node.hasChildren ? -8 : 8"
+    [attr.text-anchor]="node.hasChildren ? 'end' : 'start'">
+    {{node.label}}
+  </svg:text>
+</ng-template>

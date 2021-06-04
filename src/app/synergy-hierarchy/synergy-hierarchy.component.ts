@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, TemplateRef, ViewChild } from "@angular/core";
 import * as d3 from "d3";
 import { HierarchyPointNode } from "d3";
 import { BooleanInput, entitiesToNodes } from "../util";
@@ -8,6 +8,7 @@ export interface SHierarchyNode<E> {
   data: E;
   parentId: string | number | null;
   label: string;
+  hasChildren: boolean;
   edgePath: string | null;
   point: HierarchyPointNode<SHierarchyNode<E>>;
   nodeCssClasses: string[];
@@ -35,6 +36,10 @@ export interface SHierarchyConfig<E> {
   getClass?: (entity: E) => string | string[];
 } // SHierarchyConfig
 
+export interface SHierarchyNodeTemplateContext<E> {
+  node: SHierarchyNode<E>;
+} // SHierarchyNodeTemplateContext
+
 @Component ({
   selector: "synergy-hierarchy",
   templateUrl: "./synergy-hierarchy.component.html",
@@ -42,11 +47,11 @@ export interface SHierarchyConfig<E> {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SynergyHierarchyComponent<E> implements OnChanges {
-  
+
   constructor (
     private cd: ChangeDetectorRef
   ) { }
-  
+
   @Input () entities!: E[];
   @Input () config!: SHierarchyConfig<E>;
   @Input () mode: "tree" | "cluster" = "tree";
@@ -54,22 +59,23 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
   @Input () height = 500;
   @Input () @BooleanInput () leafSorting = false;
   @Input () selection: "none" | "single" | "multiple" = "none";
-  
+  @Input () nodeTemplate: TemplateRef<SHierarchyNodeTemplateContext<E>> | null = null;
+
   @Output () selectionChange = new EventEmitter<SHierarchySelectionChangeEvent<E>> ();
   @Output () sChange = new EventEmitter<SHierarchyChangeEvent<E>> ();
-  
+
   @ViewChild ("svg") svg!: ElementRef<SVGElement>;
-  
+
   private nodeIds: (string | number)[] = [];
   private nodesMap: Record<string, SHierarchyNode<E>> = { };
-  
+
   edges!: SHierarchyNode<E>[];
   nodes!: SHierarchyNode<E>[];
   private leafNodes!: SHierarchyNode<E>[];
-  
+
   private hierarchy!: d3.TreeLayout<SHierarchyNode<E>>;
   private stratify!: d3.StratifyOperator<SHierarchyNode<E>>;
-  
+
   private dragging: {
     selectedNode: SHierarchyNode<E>;
     originalPointX: number;
@@ -117,21 +123,21 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
     );
     this.nodesMap = map;
     this.nodeIds = ids;
-    
+
     const root = this.stratify (this.nodeIds.map (id => this.nodesMap[id]));
     // .sort ((a, b) => (a.height - b.height) || a.id!.localeCompare (b.id!));
-      
+
     const rootPoint = this.hierarchy (root);
     this.nodes = [];
     this.edges = [];
 
     const leaves = rootPoint.leaves ();
     this.leafNodes = this.applyLeafSort (leaves);
-    
+
     const descendantPoints = rootPoint.descendants ().slice (1);
 
     this.initNode (rootPoint);
-    
+
     descendantPoints.forEach ((point) => {
       this.initNode (point);
       this.initEdge (point);
@@ -141,6 +147,7 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
   private initNode (point: HierarchyPointNode<SHierarchyNode<E>>) {
     const node = point.data;
     node.point = point;
+    node.hasChildren = !!node.point.children;
     this.initNodeCssClasses (node);
     this.nodes.push (node);
   } // initNode
@@ -191,6 +198,7 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
       data: entity,
       label: this.config.getLabel (entity),
       parentId: this.config.getParentId (entity),
+      hasChildren: false,
       nodeCssClasses: null as any,
       edgeCssClasses: null as any,
       edgePath: null,
