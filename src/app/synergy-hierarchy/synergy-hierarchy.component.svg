@@ -6,30 +6,33 @@
   (touchend)="onEndDrag ($event)"
   (touchleave)="onEndDrag ($event)"
   (touchcancel)="onEndDrag ($event)">
-  <svg:g transform="translate(40,0)">
-    <svg:path
+  <g #gContent [attr.transform]="'translate(' + translateX + ',0)'">
+    <path
       *ngFor="let edge of edges"
       class="s-hierarchy-edge"
       [ngClass]="edge.edgeCssClasses"
       [attr.d]="edge.edgePath">
-    </svg:path>
-    <svg:g *ngFor="let node of nodes"
+    </path>
+    <g *ngFor="let node of nodes"
       (mousedown)="onStartDrag ($event, node)"
       (touchstart)="onStartDrag ($event, node)"
       (click)="onNodeClick (node)"
       class="s-hierarchy-node"
+      [sSvgGRect]="createHierarchyNodeWrapper"
+      [sSvgGRectPaddingLeft]="hierarchyNodeWrapperPaddingLeft"
+      sSvgGRectClass="s-hierarchy-node-wrapper"
       [ngClass]="node.nodeCssClasses"
       [attr.transform]="'translate(' + node.point.y + ',' + node.point.x + ')'">
       <ng-container *ngTemplateOutlet="nodeTemplate || defaultNodeTemplate; context: { node: node }"></ng-container>
-    </svg:g>
-  </svg:g>
+    </g>
+  </g>
 </svg>
 <ng-template #defaultNodeTemplate let-node="node">
   <svg:circle class="s-hierarchy-default-node-shape" r="2.5">
   </svg:circle>
   <svg:text
     dy="3"
-    [ngClass]="(leafSorting && !node.hasChildren) ? 's-hierarchy-drag-handle' : ''"
+    [ngClass]="(globalLeafSorting && !node.hasChildren) ? 's-hierarchy-drag-handle' : ''"
     [attr.x]="node.hasChildren ? -8 : 8"
     [attr.text-anchor]="node.hasChildren ? 'end' : 'start'">
     {{node.label}}

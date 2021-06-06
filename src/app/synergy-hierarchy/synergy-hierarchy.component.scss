@@ -1,11 +1,12 @@
+:host ::ng-deep .s-hierarchy-wrapper {
+  fill: transparent;
+}
 .s-hierarchy-node {
   .s-hierarchy-default-node-shape {
     fill: #999;
   }
   ::ng-deep .s-hierarchy-label {
     font: 10px sans-serif;
-  }
-  &.is-internal ::ng-deep text {
     // per coprire i legami sottostanti
     text-shadow: 0 1px 0 #fff, 0 -1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff;
   }
@@ -14,6 +15,16 @@
   }
   &.is-selected text {
     font-weight: 800;
+  }
+  ::ng-deep .s-hierarchy-node-wrapper {
+    fill: transparent;
+  }
+  &.is-selected ::ng-deep .s-hierarchy-node-wrapper {
+    fill: #ede7f6;
+    opacity: 0.5;
+  }
+  &.is-selectable {
+    cursor: pointer;
   }
 }
 

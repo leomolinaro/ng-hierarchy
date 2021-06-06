@@ -7,7 +7,7 @@ export interface SHierarchyNode<E> {
   id: string | number;
   data: E;
   parentId: string | number | null;
-  label: string;
+  label: string | null;
   hasChildren: boolean;
   edgePath: string | null;
   point: HierarchyPointNode<SHierarchyNode<E>>;
@@ -22,17 +22,18 @@ export interface SHierarchySelectionChangeEvent<E> {
 } // SHierarchySelectionChangeEvent
 
 export interface SHierarchyLeafSortEvent<E> {
-  type: "leafSort";
-  newLeafs: E[];
+  type: "globalLeafSort";
+  newGlobalSortedLeafs: E[];
 } // SHierarchyLeafSortEvent
 
 export type SHierarchyChangeEvent<E> = SHierarchyLeafSortEvent<E>;
 
 export interface SHierarchyConfig<E> {
   getId: (entity: E) => string | number;
-  getLabel: (entity: E) => string;
+  getLabel?: (entity: E) => string;
   getParentId: (entity: E) => string | number | null;
-  leafSort?: (entityA: E, entityB: E) => number;
+  hasGlobalLeafSort?: (entityA: E) => boolean;
+  globalLeafSort?: (entityA: E, entityB: E) => number;
   getClass?: (entity: E) => string | string[];
 } // SHierarchyConfig
 
@@ -42,22 +43,21 @@ export interface SHierarchyNodeTemplateContext<E> {
 
 @Component ({
   selector: "synergy-hierarchy",
-  templateUrl: "./synergy-hierarchy.component.html",
+  templateUrl: "./synergy-hierarchy.component.svg",
   styleUrls: ["./synergy-hierarchy.component.scss"],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SynergyHierarchyComponent<E> implements OnChanges {
 
   constructor (
+    private el: ElementRef<HTMLElement>,
     private cd: ChangeDetectorRef
   ) { }
 
   @Input () entities!: E[];
   @Input () config!: SHierarchyConfig<E>;
   @Input () mode: "tree" | "cluster" = "tree";
-  @Input () width = 500;
-  @Input () height = 500;
-  @Input () @BooleanInput () leafSorting = false;
+  @Input () @BooleanInput () globalLeafSorting = false;
   @Input () selection: "none" | "single" | "multiple" = "none";
   @Input () nodeTemplate: TemplateRef<SHierarchyNodeTemplateContext<E>> | null = null;
 
@@ -65,13 +65,14 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
   @Output () sChange = new EventEmitter<SHierarchyChangeEvent<E>> ();
 
   @ViewChild ("svg") svg!: ElementRef<SVGElement>;
+  @ViewChild ("gContent") gContent!: ElementRef<SVGGElement>;
 
   private nodeIds: (string | number)[] = [];
   private nodesMap: Record<string, SHierarchyNode<E>> = { };
 
   edges!: SHierarchyNode<E>[];
   nodes!: SHierarchyNode<E>[];
-  private leafNodes!: SHierarchyNode<E>[];
+  private globalSortedLeafNodes: SHierarchyNode<E>[] | null = null;
 
   private hierarchy!: d3.TreeLayout<SHierarchyNode<E>>;
   private stratify!: d3.StratifyOperator<SHierarchyNode<E>>;
@@ -82,6 +83,15 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
     originalEdgePath: string;
   } | null = null;
 
+  width = 100;
+  height = 100;
+  translateX = 0;
+  scaleX = 1;
+
+  resizeOnChanges = true;
+  createHierarchyNodeWrapper = false;
+  hierarchyNodeWrapperPaddingLeft = 10;
+
   //////////////////////////////////////////////////////////////////////////////////////////
   ///// ANGULAR LIFECYCLES /////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////////////////
@@ -91,10 +101,16 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
     let doRedraw = false;
     if (changes.config) { doReconfig = true; }
     if (changes.entities) { doRedraw = true; }
-    if (changes.mode || changes.width || changes.height) { doReconfig = true; }
+    if (changes.mode) { doReconfig = true; this.resizeOnChanges = true; }
     if (doReconfig) { doRedraw = true; }
     if (doReconfig) { this.reconfig (); }
-    if (doRedraw) { this.redraw (); }
+    if (doRedraw) {
+      this.redraw ();
+      if (this.resizeOnChanges) {
+        setTimeout (() => this.resize ());
+        this.resizeOnChanges = false;
+      } // if
+    } // if
   } // ngOnChanges
 
   //////////////////////////////////////////////////////////////////////////////////////////
@@ -102,8 +118,14 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
   //////////////////////////////////////////////////////////////////////////////////////////
 
   private reconfig () {
+    if (this.config.hasGlobalLeafSort && this.mode !== "cluster") { throw new Error ("'hasGlobalLeafSort' non applicabile a modalità diverse da 'cluster'."); }
+
+    const parentElement = this.el.nativeElement.parentElement;
+    this.height = parentElement!.clientHeight;
+    this.width = parentElement!.clientWidth;
+
     const hierarchy = this.mode === "tree" ? d3.tree<SHierarchyNode<E>> () : d3.cluster<SHierarchyNode<E>> ();
-    hierarchy.size ([this.height, this.width - 160])
+    hierarchy.size ([this.height, this.getResizedWidth ()])
     .separation (() => 1);
     this.hierarchy = hierarchy;
 
@@ -125,14 +147,13 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
     this.nodeIds = ids;
 
     const root = this.stratify (this.nodeIds.map (id => this.nodesMap[id]));
-    // .sort ((a, b) => (a.height - b.height) || a.id!.localeCompare (b.id!));
 
     const rootPoint = this.hierarchy (root);
     this.nodes = [];
     this.edges = [];
 
     const leaves = rootPoint.leaves ();
-    this.leafNodes = this.applyLeafSort (leaves);
+    this.globalSortedLeafNodes = this.applyGlobalLeafSort (leaves);
 
     const descendantPoints = rootPoint.descendants ().slice (1);
 
@@ -142,6 +163,8 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
       this.initNode (point);
       this.initEdge (point);
     });
+    
+    // this.applyResize ();
   } // redraw
 
   private initNode (point: HierarchyPointNode<SHierarchyNode<E>>) {
@@ -171,22 +194,23 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
         } // if - else
       } // if
     } // if
+    if (this.selection) { node.nodeCssClasses.push ("is-selectable"); }
   } // initNodeCssClasses
 
-  private applyLeafSort (leafPoints: HierarchyPointNode<SHierarchyNode<E>>[]) {
-    if (this.config.leafSort) {
-      leafPoints = [...leafPoints];
-      const coordXs = leafPoints.map (l => l.x);
-      leafPoints.sort ((a, b) => this.config.leafSort! (a.data.data, b.data.data));
-      const leafNodes = leafPoints.map ((c, index) => {
+  private applyGlobalLeafSort (leafPoints: HierarchyPointNode<SHierarchyNode<E>>[]) {
+    if (this.config.hasGlobalLeafSort) {
+      const globalSortedLeafPoints = leafPoints.filter (l => this.config.hasGlobalLeafSort! (l.data.data));
+      const coordXs = globalSortedLeafPoints.map (l => l.x);
+      globalSortedLeafPoints.sort ((a, b) => this.config.globalLeafSort! (a.data.data, b.data.data));
+      const globalSortedLeafNodes = globalSortedLeafPoints.map ((c, index) => {
         c.x = coordXs[index];
         return c.data;
       });
-      return leafNodes;
+      return globalSortedLeafNodes;
     } else {
-      return leafPoints.map (p => p.data);
+      return null;
     } // if - else
-  } // applyLeafSort
+  } // applyGlobalLeafSort
 
   private pointToEdgePath (point: HierarchyPointNode<SHierarchyNode<E>>) {
     return `M${point.y},${point.x} C${(point.parent!.y + 100)},${point.x} ${(point.parent!.y + 100)},${point.parent!.x} ${point.parent!.y},${point.parent!.x}`;
@@ -196,7 +220,7 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
     return {
       id: this.config.getId (entity),
       data: entity,
-      label: this.config.getLabel (entity),
+      label: this.config.getLabel ? this.config.getLabel (entity) : null,
       parentId: this.config.getParentId (entity),
       hasChildren: false,
       nodeCssClasses: null as any,
@@ -206,6 +230,25 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
       selected: false
     };
   } // entityToNode
+
+  private resize () {
+    const box: { x: number; y: number; width: number; height: number } = (this.gContent.nativeElement as any).getBBox ();
+    this.translateX = -1 * box.x + this.hierarchyNodeWrapperPaddingLeft;
+    this.scaleX = this.width / (box.width - box.x) - 0.05;
+    this.nodes.forEach (node => {
+      node.point.y *= this.scaleX;
+    });
+    this.edges.forEach (edge => {
+      edge.edgePath = this.pointToEdgePath (edge.point);
+    });
+    this.hierarchy.size ([this.height, this.getResizedWidth ()]);
+    this.createHierarchyNodeWrapper = !!this.selection;
+    this.cd.markForCheck ();
+  } // resize
+
+  private getResizedWidth () {
+    return this.width * this.scaleX;
+  } // getResizedWidth
 
   //////////////////////////////////////////////////////////////////////////////////////////
   ///// ACTIONS ////////////////////////////////////////////////////////////////////////////
@@ -238,8 +281,17 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
     } // if
   } // onNodeClick
 
+  private isDragHandle (element: HTMLElement): boolean {
+    if (element.classList.contains ("s-hierarchy-drag-handle")) { return true; }
+    if (element.parentElement) {
+      return this.isDragHandle (element.parentElement);
+    } else {
+      return false;
+    } // if - else
+  } // isDragHandle
+
   onStartDrag (event: any, node: SHierarchyNode<E>) {
-    if (event.target.classList.contains ("s-hierarchy-drag-handle")) {
+    if (this.globalLeafSorting && this.isDragHandle (event.target)) {
       node.nodeCssClasses.push ("is-dragging");
       node.edgeCssClasses.push ("is-dragging");
       this.dragging = {
@@ -260,28 +312,28 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
     } // if
   } // onDrag
 
-  onEndDrag (event: any) {
+  onEndDrag (event: Event) {
     if (this.dragging) {
       const node = this.dragging.selectedNode;
       node.nodeCssClasses.shift ();
       node.edgeCssClasses.shift ();
       this.cd.detectChanges (); // senza di questo resta la classe css is-dragging su edgeCssClasses
-      const newLeafNodes = [...this.leafNodes];
-      const leafIndex = newLeafNodes.findIndex (leafNode => node === leafNode);
-      newLeafNodes.splice (leafIndex, 1);
-      const newLeafIndex = newLeafNodes.findIndex (leafNode => node.point.x < leafNode.point.x);
+      const newGlobalSortedLeafNodes = [...this.globalSortedLeafNodes!];
+      const leafIndex = newGlobalSortedLeafNodes.findIndex (leafNode => node === leafNode);
+      newGlobalSortedLeafNodes.splice (leafIndex, 1);
+      const newLeafIndex = newGlobalSortedLeafNodes.findIndex (leafNode => node.point.x < leafNode.point.x);
       if (newLeafIndex >= 0) {
-        newLeafNodes.splice (newLeafIndex, 0, node);
+        newGlobalSortedLeafNodes.splice (newLeafIndex, 0, node);
       } else {
-        newLeafNodes.push (node);
+        newGlobalSortedLeafNodes.push (node);
       } // if - else
       node.point.x = this.dragging.originalPointX;
       node.edgePath = this.dragging.originalEdgePath;
       this.dragging = null;
-      const newLeafs = newLeafNodes.map (n => n.data);
+      const newGlobalSortedLeafs = newGlobalSortedLeafNodes.map (n => n.data);
       this.sChange.next ({
-        type: "leafSort",
-        newLeafs
+        type: "globalLeafSort",
+        newGlobalSortedLeafs
       });
     } // if
   } // onEndDrag

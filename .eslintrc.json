@@ -171,7 +171,7 @@
     "array-bracket-spacing": "warn",
     "array-callback-return": "warn",
     "array-element-newline": "off",
-    "arrow-body-style": "warn",
+    "arrow-body-style": "off",
     "arrow-parens": [
       "off",
       "always"

@@ -1,21 +1,71 @@
-<synergy-hierarchy
-  [entities]="queryNodes"
-  [config]="hierarchyConfig"
-  [nodeTemplate]="nodeTemplate"
-  leafSorting
-  selection="multiple"
-  mode="cluster"
-  (sChange)="onQueryNodesChange ($event)">
-</synergy-hierarchy>
+<div style="width: 50%; min-height: 300px" #container>
+  <synergy-hierarchy
+    [entities]="queryNodes"
+    [config]="hierarchyConfig"
+    [nodeTemplate]="nodeTemplate"
+    globalLeafSorting
+    selection="single"
+    mode="cluster"
+    (sChange)="onQueryNodesChange ($event)">
+  </synergy-hierarchy>
+</div>
 <ng-template #nodeTemplate let-node="node">
-  <svg:rect width="5" height="8" y="-4">
-  </svg:rect>
-  <svg:text
-    sHierarchyDragHandle="!node.hasChildren"
-    sHierarchyLabel
-    dy="3"
-    [attr.x]="node.hasChildren ? -8 : 8"
-    [attr.text-anchor]="node.hasChildren ? 'end' : 'start'">
-    {{node.label}}
-  </svg:text>
+  <ng-container [ngSwitch]="node.data.type">
+    <ng-container *ngSwitchCase="'table'">
+      <ng-container [ngSwitch]="node.data.subType">
+        <ng-container *ngSwitchCase="'root'">
+          <svg:rect width="5" height="8" y="-4">
+          </svg:rect>
+          <svg:text
+            sHierarchyLabel
+            text-anchor="end">
+            <svg:tspan x="-8">{{node.data.tableDescription}}</svg:tspan>
+            <svg:tspan x="-8" dy="10">{{node.data.tableName}}</svg:tspan>
+          </svg:text>
+        </ng-container>
+        <ng-container *ngSwitchCase="'decode'">
+          <svg:rect width="5" height="8" y="-4">
+          </svg:rect>
+          <svg:text
+            sHierarchyLabel
+            text-anchor="end">
+            <svg:tspan x="-8">{{node.data.tableDescription}}</svg:tspan>
+            <svg:tspan x="-8" dy="10">{{node.data.tableName}}</svg:tspan>
+          </svg:text>
+        </ng-container>
+        <ng-container *ngSwitchCase="'dependant'">
+          <svg:rect width="5" height="8" y="-4">
+          </svg:rect>
+          <svg:rect width="5" height="8" y="-4" x="-8">
+          </svg:rect>
+          <svg:rect width="5" height="8" y="-4" x="-16">
+          </svg:rect>
+          <svg:text
+            sHierarchyLabel
+            text-anchor="end">
+            <svg:tspan x="-24">{{node.data.tableDescription}}</svg:tspan>
+            <svg:tspan x="-24" dy="10">{{node.data.tableName}}</svg:tspan>
+          </svg:text>
+        </ng-container>
+      </ng-container>
+    </ng-container>
+    <ng-container *ngSwitchCase="'column'">
+      <svg:circle r="3"></svg:circle>
+      <svg:g>
+        <svg:rect style="fill: transparent" sHierarchyDragHandle width="10" height="14" y="-7" x="8"></svg:rect>
+        <svg:circle r="1" cx="11" cy="-5"></svg:circle>
+        <svg:circle r="1" cx="15" cy="-5"></svg:circle>
+        <svg:circle r="1" cx="11" cy="0"></svg:circle>
+        <svg:circle r="1" cx="15" cy="0"></svg:circle>
+        <svg:circle r="1" cx="11" cy="5"></svg:circle>
+        <svg:circle r="1" cx="15" cy="5"></svg:circle>
+      </svg:g>
+      <svg:text
+        sHierarchyLabel
+        text-anchor="start">
+        <svg:tspan x="24">{{node.data.columnDescription}}</svg:tspan>
+        <svg:tspan x="24" dy="10">{{node.data.columnName}}</svg:tspan>
+      </svg:text>
+    </ng-container>
+  </ng-container>
 </ng-template>

@@ -3,6 +3,7 @@ import { BrowserModule } from "@angular/platform-browser";
 import { AppComponent } from "./app.component";
 import { SynergyHierarchyComponent } from "./synergy-hierarchy/synergy-hierarchy.component";
 import { SynergyHierarchyDragHandleDirective, SynergyHierarchyLabelDirective } from "./synergy-hierarchy/synergy-hierarchy.directives";
+import { SynergySvgGRectDirective } from "./synergy-svg-g-rect.directive";
 
 @NgModule ({
   declarations: [
@@ -10,6 +11,7 @@ import { SynergyHierarchyDragHandleDirective, SynergyHierarchyLabelDirective } f
     SynergyHierarchyComponent,
     SynergyHierarchyDragHandleDirective,
     SynergyHierarchyLabelDirective,
+    SynergySvgGRectDirective,
   ],
   imports: [
     BrowserModule
