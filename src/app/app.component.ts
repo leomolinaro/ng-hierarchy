@@ -30,7 +30,7 @@ type SQueryNode = SQueryTable | SQueryColumn;
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AppComponent {
-  
+
   hierarchyConfig: SHierarchyConfig<SQueryNode> = {
     getId: e => e.id,
     // getLabel: e => e.label,
@@ -72,7 +72,7 @@ export class AppComponent {
       const newQueryNodes = this.queryNodes.map (qn => {
         const leafSort = leafSortMap[qn.id];
         if (leafSort && qn.type === "column") {
-          qn.columnSort = leafSort;
+          qn = { ...qn, columnSort: leafSort };
         } // if
         return qn;
       });

@@ -8,12 +8,12 @@
   (touchcancel)="onEndDrag ($event)">
   <g #gContent [attr.transform]="'translate(' + translateX + ',0)'">
     <path
-      *ngFor="let edge of edges"
+      *ngFor="let edge of edges; trackBy: edgeTrackBy"
       class="s-hierarchy-edge"
       [ngClass]="edge.edgeCssClasses"
       [attr.d]="edge.edgePath">
     </path>
-    <g *ngFor="let node of nodes"
+    <g *ngFor="let node of nodes; trackBy: nodeTrackBy"
       (mousedown)="onStartDrag ($event, node)"
       (touchstart)="onStartDrag ($event, node)"
       (click)="onNodeClick (node)"

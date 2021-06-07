@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, TemplateRef, ViewChild } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, TemplateRef, TrackByFunction, ViewChild } from "@angular/core";
 import * as d3 from "d3";
 import { HierarchyPointNode } from "d3";
 import { BooleanInput, entitiesToNodes } from "../util";
@@ -92,6 +92,9 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
   createHierarchyNodeWrapper = false;
   hierarchyNodeWrapperPaddingLeft = 10;
 
+  nodeTrackBy: TrackByFunction<SHierarchyNode<E>> = (index, node) => node.id;
+  edgeTrackBy: TrackByFunction<SHierarchyNode<E>> = (index, node) => node.id;
+
   //////////////////////////////////////////////////////////////////////////////////////////
   ///// ANGULAR LIFECYCLES /////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////////////////
@@ -163,7 +166,7 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
       this.initNode (point);
       this.initEdge (point);
     });
-    
+
     // this.applyResize ();
   } // redraw
 
