@@ -3,6 +3,10 @@ import * as d3 from "d3";
 import { HierarchyPointNode } from "d3";
 import { BooleanInput, entitiesToNodes } from "../util";
 
+/**
+ * Il nodo interno gestito dalla gerarchia.
+ * @template E Il tipo di dato passato da fuori.
+ */
 export interface SHierarchyNode<E> {
   id: string | number;
   data: E;
@@ -29,12 +33,13 @@ export interface SHierarchyLeafSortEvent<E> {
 export type SHierarchyChangeEvent<E> = SHierarchyLeafSortEvent<E>;
 
 export interface SHierarchyConfig<E> {
-  getId: (entity: E) => string | number;
-  getLabel?: (entity: E) => string;
-  getParentId: (entity: E) => string | number | null;
-  hasGlobalLeafSort?: (entityA: E) => boolean;
-  globalLeafSort?: (entityA: E, entityB: E) => number;
-  getClass?: (entity: E) => string | string[];
+  getId: (params: { data: E }) => string | number;
+  getLabel?: (params: { data: E }) => string;
+  getParentId: (params: { data: E }) => string | number | null;
+  hasGlobalLeafSort?: (params: { data: E }) => boolean;
+  globalLeafSort?: (params: { dataA: E; dataB: E }) => number;
+  getNodeClass?: (params: { data: E }) => string | string[];
+  getEdgeClass?: (params: { data: E }) => string | string[];
 } // SHierarchyConfig
 
 export interface SHierarchyNodeTemplateContext<E> {
@@ -144,7 +149,7 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
   private redraw () {
     const { map, ids } = entitiesToNodes (
       this.entities, this.nodesMap,
-      e => this.config.getId (e), n => n.data, e => this.entityToNode (e)
+      e => this.config.getId ({ data: e }), n => n.data, e => this.entityToNode (e)
     );
     this.nodesMap = map;
     this.nodeIds = ids;
@@ -152,59 +157,79 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
     const root = this.stratify (this.nodeIds.map (id => this.nodesMap[id]));
 
     const rootPoint = this.hierarchy (root);
-    this.nodes = [];
-    this.edges = [];
-
+    const descendantPoints = rootPoint.descendants ().slice (1);
     const leaves = rootPoint.leaves ();
+
     this.globalSortedLeafNodes = this.applyGlobalLeafSort (leaves);
 
-    const descendantPoints = rootPoint.descendants ().slice (1);
+    const nodes: SHierarchyNode<E>[] = [];
+    const edges: SHierarchyNode<E>[] = [];
 
-    this.initNode (rootPoint);
+    const rootNode = this.initNode (rootPoint);
+    nodes.push (rootNode);
 
     descendantPoints.forEach ((point) => {
-      this.initNode (point);
-      this.initEdge (point);
+      const descendantNode = this.initNode (point);
+      nodes.push (descendantNode);
+      const edge = this.initEdge (point);
+      edges.push (edge);
     });
 
-    // this.applyResize ();
+    this.nodes = nodes;
+    this.edges = edges;
   } // redraw
 
   private initNode (point: HierarchyPointNode<SHierarchyNode<E>>) {
     const node = point.data;
     node.point = point;
     node.hasChildren = !!node.point.children;
-    this.initNodeCssClasses (node);
-    this.nodes.push (node);
+    node.nodeCssClasses = this.getNodeCssClasses (node);
+    return node;
   } // initNode
 
   private initEdge (point: HierarchyPointNode<SHierarchyNode<E>>) {
     const node = point.data;
     node.edgePath = this.pointToEdgePath (point);
-    node.edgeCssClasses = [];
-    this.edges.push (node);
+    node.edgeCssClasses = this.getEdgeCssClasses (node);
+    return node;
   } // initEdge
 
-  private initNodeCssClasses (node: SHierarchyNode<E>) {
-    node.nodeCssClasses = [node.point.children ? "is-internal" : "is-leaf"];
-    if (this.config.getClass) {
-      const configClasses = this.config.getClass (node.data);
+  private getNodeCssClasses (node: SHierarchyNode<E>) {
+    const nodeCssClasses = [node.point.children ? "is-internal" : "is-leaf"];
+    if (this.config.getNodeClass) {
+      const configClasses = this.config.getNodeClass ({ data: node.data });
       if (configClasses) {
         if (typeof configClasses === "string") {
-          node.nodeCssClasses.push (configClasses);
+          nodeCssClasses.push (configClasses);
         } else {
-          configClasses.forEach (cl => node.nodeCssClasses.push (cl));
+          configClasses.forEach (cl => nodeCssClasses.push (cl));
         } // if - else
       } // if
     } // if
-    if (this.selection) { node.nodeCssClasses.push ("is-selectable"); }
-  } // initNodeCssClasses
+    if (this.selection) { nodeCssClasses.push ("is-selectable"); }
+    return nodeCssClasses;
+  } // getNodeCssClasses
+
+  private getEdgeCssClasses (node: SHierarchyNode<E>) {
+    const edgeCssClasses = [];
+    if (this.config.getEdgeClass) {
+      const configClasses = this.config.getEdgeClass ({ data: node.data });
+      if (configClasses) {
+        if (typeof configClasses === "string") {
+          edgeCssClasses.push (configClasses);
+        } else {
+          configClasses.forEach (cl => edgeCssClasses.push (cl));
+        } // if - else
+      } // if
+    } // if
+    return edgeCssClasses;
+  } // getEdgeCssClasses
 
   private applyGlobalLeafSort (leafPoints: HierarchyPointNode<SHierarchyNode<E>>[]) {
     if (this.config.hasGlobalLeafSort) {
-      const globalSortedLeafPoints = leafPoints.filter (l => this.config.hasGlobalLeafSort! (l.data.data));
+      const globalSortedLeafPoints = leafPoints.filter (l => this.config.hasGlobalLeafSort! ({ data: l.data.data }));
       const coordXs = globalSortedLeafPoints.map (l => l.x);
-      globalSortedLeafPoints.sort ((a, b) => this.config.globalLeafSort! (a.data.data, b.data.data));
+      globalSortedLeafPoints.sort ((a, b) => this.config.globalLeafSort! ({ dataA: a.data.data, dataB: b.data.data }));
       const globalSortedLeafNodes = globalSortedLeafPoints.map ((c, index) => {
         c.x = coordXs[index];
         return c.data;
@@ -220,11 +245,12 @@ export class SynergyHierarchyComponent<E> implements OnChanges {
   } // nodeToEdgePath
 
   private entityToNode (entity: E): SHierarchyNode<E> {
+    const params = { data: entity };
     return {
-      id: this.config.getId (entity),
+      id: this.config.getId (params),
       data: entity,
-      label: this.config.getLabel ? this.config.getLabel (entity) : null,
-      parentId: this.config.getParentId (entity),
+      label: this.config.getLabel ? this.config.getLabel (params) : null,
+      parentId: this.config.getParentId (params),
       hasChildren: false,
       nodeCssClasses: null as any,
       edgeCssClasses: null as any,

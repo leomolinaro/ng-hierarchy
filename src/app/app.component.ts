@@ -32,20 +32,20 @@ type SQueryNode = SQueryTable | SQueryColumn;
 export class AppComponent {
 
   hierarchyConfig: SHierarchyConfig<SQueryNode> = {
-    getId: e => e.id,
+    getId: params => params.data.id,
     // getLabel: e => e.label,
-    getParentId: e => {
-      switch (e.type) {
-        case "table": return e.parentTable;
-        case "column": return e.table;
+    getParentId: params => {
+      switch (params.data.type) {
+        case "table": return params.data.parentTable;
+        case "column": return params.data.table;
       } // switch
     }, // getParentId
-    hasGlobalLeafSort: (a) => {
-      return a.type === "column";
+    hasGlobalLeafSort: (params) => {
+      return params.data.type === "column";
     },
-    globalLeafSort: (a, b) => {
-      const columnA = a as SQueryColumn;
-      const columnB = b as SQueryColumn;
+    globalLeafSort: (params) => {
+      const columnA = params.dataA as SQueryColumn;
+      const columnB = params.dataB as SQueryColumn;
       return columnA.columnSort - columnB.columnSort;
     }
   };
